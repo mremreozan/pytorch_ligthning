@@ -1,34 +1,33 @@
 import torch
-from model import ColaModel
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+
 from data import DataModule
-import sys
+from model import ColaModel
 
 
-class ColaPredictor:
-    def __init__(self, model_path):
-        self.model_path = model_path
-        self.model = ColaModel.load_from_checkpoint(model_path)
-        self.model.eval()
-        self.model.freeze()
-        self.processor = DataModule()
-        self.softmax = torch.nn.Softmax(dim=0)
-        self.lables = ["unacceptable", "acceptable"]
+def main():
+    cola_data = DataModule()
+    cola_model = ColaModel()
 
-    def predict(self, text):
-        inference_sample = {"sentence": text}
-        processed = self.processor.tokenize_data(inference_sample)
-        logits = self.model(
-            torch.tensor([processed["input_ids"]]),
-            torch.tensor([processed["attention_mask"]]),
-        )
-        scores = self.softmax(logits[0]).tolist()
-        predictions = []
-        for score, label in zip(scores, self.lables):
-            predictions.append({"label": label, "score": score})
-        return predictions
+    checkpoint_callback = ModelCheckpoint(
+        dirpath="./models", monitor="val_loss", mode="min"
+    )
+    early_stopping_callback = EarlyStopping(
+        monitor="val_loss", patience=3, verbose=True, mode="min"
+    )
+
+    trainer = pl.Trainer(
+        default_root_dir="logs",
+        gpus=(1 if torch.cuda.is_available() else 0),
+        max_epochs=5,
+        fast_dev_run=False,
+        logger=pl.loggers.TensorBoardLogger("logs/", name="cola", version=1),
+        callbacks=[checkpoint_callback, early_stopping_callback],
+    )
+    trainer.fit(cola_model, cola_data)
 
 
 if __name__ == "__main__":
-    sentence = sys.argv[1]
-    predictor = ColaPredictor("models/epoch=4-step=1339.ckpt")
-    print(predictor.predict(sentence))
+    main()

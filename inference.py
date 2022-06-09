@@ -1,7 +1,7 @@
 import torch
 from model import ColaModel
 from data import DataModule
-
+import sys
 
 class ColaPredictor:
     def __init__(self, model_path):
@@ -28,6 +28,6 @@ class ColaPredictor:
 
 
 if __name__ == "__main__":
-    sentence = "The boy is sitting on a bench"
-    predictor = ColaPredictor("./models/epoch=0-step=267.ckpt")
+    sentence = sys.argv[1]
+    predictor = ColaPredictor("models/epoch=4-step=1339.ckpt")
     print(predictor.predict(sentence))
